@@ -1,0 +1,40 @@
+RewriteEngine On
+
+# Remove .php extension from URLs
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+# Redirect .php URLs to clean URLs
+RewriteCond %{THE_REQUEST} /([^.]+)\.php [NC]
+RewriteRule ^ /%1? [NC,L,R=301]
+
+# Handle folder-based URLs
+RewriteRule ^student/?$ student/index.php [L]
+RewriteRule ^teacher/?$ teacher/index.php [L]
+RewriteRule ^course/?$ course/index.php [L]
+RewriteRule ^room/?$ room/index.php [L]
+RewriteRule ^user/?$ user/index.php [L]
+RewriteRule ^enrollment/?$ enrollment/index.php [L]
+RewriteRule ^database/?$ database/index.php [L]
+
+# Handle sub-pages in folders
+RewriteRule ^student/([^/]+)/?$ student/$1.php [L]
+RewriteRule ^teacher/([^/]+)/?$ teacher/$1.php [L]
+RewriteRule ^course/([^/]+)/?$ course/$1.php [L]
+RewriteRule ^room/([^/]+)/?$ room/$1.php [L]
+RewriteRule ^user/([^/]+)/?$ user/$1.php [L]
+RewriteRule ^enrollment/([^/]+)/?$ enrollment/$1.php [L]
+RewriteRule ^database/([^/]+)/?$ database/$1.php [L]
+
+# Security: Deny access to .htaccess files
+<Files ".htaccess">
+Order allow,deny
+Deny from all
+</Files>
+
+# Security: Deny access to config files
+<FilesMatch "\.(sql|log|ini)$">
+Order allow,deny
+Deny from all
+</FilesMatch>
