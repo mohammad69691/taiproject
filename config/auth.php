@@ -51,6 +51,10 @@ function canManageCourses() {
 
 
 function canEnrollStudents() {
+    return isAdmin();
+}
+
+function canViewStudents() {
     return hasRole(['admin', 'opettaja']);
 }
 

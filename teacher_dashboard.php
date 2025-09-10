@@ -2,10 +2,8 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain opettajat voivat käyttää tätä sivua
 if (!isTeacher()) {
     header('Location: access_denied.php');
     exit();
@@ -15,7 +13,6 @@ $pdo = getDbConnection();
 $teacherId = getCurrentTeacherId();
 $error = '';
 
-// Haetaan opettajan tiedot
 $opettaja = null;
 try {
     $stmt = $pdo->prepare("SELECT * FROM opettajat WHERE tunnus = ?");
@@ -25,7 +22,6 @@ try {
     $error = 'Virhe opettajatietojen haussa: ' . $e->getMessage();
 }
 
-// Haetaan opettajan kurssit
 $kurssit = [];
 try {
     $stmt = $pdo->prepare("
@@ -44,7 +40,6 @@ try {
     $error = 'Virhe kurssien haussa: ' . $e->getMessage();
 }
 
-// Haetaan opettajan opiskelijat (kaikissa kursseissa)
 $opiskelijat = [];
 try {
     $stmt = $pdo->prepare("

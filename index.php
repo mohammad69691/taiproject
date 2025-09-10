@@ -2,32 +2,25 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan tietokantayhteys
 $dbConnected = testDbConnection();
 
-// Haetaan tilastot
 $stats = [];
 if ($dbConnected) {
     try {
         $pdo = getDbConnection();
         
-        // Opiskelijoiden määrä
         $stmt = $pdo->query("SELECT COUNT(*) as count FROM opiskelijat");
         $stats['opiskelijat'] = $stmt->fetch()['count'];
         
-        // Opettajien määrä
         $stmt = $pdo->query("SELECT COUNT(*) as count FROM opettajat");
         $stats['opettajat'] = $stmt->fetch()['count'];
         
-        // Kurssien määrä
         $stmt = $pdo->query("SELECT COUNT(*) as count FROM kurssit");
         $stats['kurssit'] = $stmt->fetch()['count'];
         
-        // Aktiivisten kurssien määrä
         $stmt = $pdo->query("SELECT COUNT(*) as count FROM kurssit WHERE alkupaiva <= CURDATE() AND loppupaiva >= CURDATE()");
         $stats['aktiiviset_kurssit'] = $stmt->fetch()['count'];
         
-        // Jos käyttäjä on opettaja, haetaan vain hänen kurssinsa
         if (isTeacher()) {
             $teacherId = getCurrentTeacherId();
             $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM kurssit WHERE opettaja_tunnus = ?");
@@ -35,7 +28,6 @@ if ($dbConnected) {
             $stats['omakurssit'] = $stmt->fetch()['count'];
         }
         
-        // Jos käyttäjä on opiskelija, haetaan vain hänen kurssinsa
         if (isStudent()) {
             header("Location: student_dashboard.php");
             $studentId = getCurrentStudentId();
@@ -217,7 +209,6 @@ if ($dbConnected) {
     </style>
 </head>
 <body>
-    <!-- Navigaatio -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="./">
@@ -321,7 +312,6 @@ if ($dbConnected) {
         </div>
     </nav>
 
-    <!-- Hero-osio -->
     <section class="hero-section">
         <div class="floating-elements">
             <div class="floating-element"></div>

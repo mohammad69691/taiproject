@@ -1,25 +1,16 @@
 <?php
-/**
- * Tietokantayhteyden konfiguraatio
- */
 
-// Prevent multiple inclusions
 if (defined('DATABASE_CONFIG_LOADED')) {
     return;
 }
 define('DATABASE_CONFIG_LOADED', true);
 
-// Tietokantayhteyden asetukset
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'kurssienhallinta');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
-/**
- * Tietokantayhteyden luonti
- * @return PDO
- */
 function getDbConnection() {
     try {
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -36,10 +27,6 @@ function getDbConnection() {
     }
 }
 
-/**
- * Tietokantayhteyden testaus
- * @return bool
- */
 function testDbConnection() {
     try {
         $pdo = getDbConnection();

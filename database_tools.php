@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit voivat käyttää tietokantatyökaluja
 if (!canEditAll()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -21,19 +18,16 @@ $pdo = getDbConnection();
 $message = '';
 $error = '';
 
-// Get database info
 $dbInfo = [];
 $tables = [];
 try {
     $dbInfo['name'] = DB_NAME;
     $dbInfo['host'] = DB_HOST;
     
-    // Get tables first
     $stmt = $pdo->query("SHOW TABLES");
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $dbInfo['table_count'] = count($tables);
     
-    // Get total records
     $totalRecords = 0;
     foreach ($tables as $table) {
         $stmt = $pdo->query("SELECT COUNT(*) FROM `$table`");
@@ -422,13 +416,11 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Prevent navbar from collapsing when clicking on nav links
         document.addEventListener('DOMContentLoaded', function() {
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
             const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
             
-            // Close navbar when clicking on a nav link (on mobile)
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     if (window.innerWidth < 992) {
@@ -440,7 +432,6 @@ try {
                 });
             });
             
-            // Prevent navbar from auto-collapsing on window resize
             let resizeTimer;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimer);

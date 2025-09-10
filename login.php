@@ -2,7 +2,6 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Redirect if already logged in
 if (isLoggedIn()) {
     header('Location: ./');
     exit();
@@ -11,7 +10,6 @@ if (isLoggedIn()) {
 $error = '';
 $success = '';
 
-// Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -22,11 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo = getDbConnection();
             
-            // Check if new columns exist
             $stmt = $pdo->query("SHOW COLUMNS FROM kayttajat LIKE 'salasana_vaihdettu'");
             $has_password_fields = $stmt->rowCount() > 0;
             
-            // Get user with role information
             if ($has_password_fields) {
                 $stmt = $pdo->prepare("
                     SELECT k.tunnus, k.kayttajanimi, k.salasana_hash, k.rooli, k.etunimi, k.sukunimi, k.salasana_vaihdettu,
@@ -50,9 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($user && password_verify($password, $user['salasana_hash'])) {
-                // Check if password needs to be changed
                 if (!$user['salasana_vaihdettu']) {
-                    // Store user info in session for password change
                     $_SESSION['temp_user_id'] = $user['tunnus'];
                     $_SESSION['temp_username'] = $user['kayttajanimi'];
                     $_SESSION['temp_user_role'] = $user['rooli'];
@@ -60,32 +54,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['temp_teacher_id'] = $user['opettaja_tunnus'];
                     $_SESSION['temp_student_id'] = $user['opiskelija_tunnus'];
                     
-                    // Redirect to password change page
                     header('Location: change_password.php');
                     exit();
                 }
                 
-                // Login successful - set session variables
                 $_SESSION['user_id'] = $user['tunnus'];
                 $_SESSION['username'] = $user['kayttajanimi'];
                 $_SESSION['user_role'] = $user['rooli'];
                 $_SESSION['user_name'] = $user['etunimi'] . ' ' . $user['sukunimi'];
                 $_SESSION['last_activity'] = time();
                 
-                // Set role-specific IDs
                 if ($user['rooli'] === 'opettaja') {
                     $_SESSION['teacher_id'] = $user['opettaja_tunnus'];
                 } elseif ($user['rooli'] === 'opiskelija') {
                     $_SESSION['student_id'] = $user['opiskelija_tunnus'];
                 }
                 
-                // Update last login time
                 $updateStmt = $pdo->prepare("UPDATE kayttajat SET viimeisin_kirjautuminen = NOW() WHERE tunnus = ?");
                 $updateStmt->execute([$user['tunnus']]);
                 
                 $success = 'Kirjautuminen onnistui! Ohjataan etusivulle...';
                 
-                // Redirect after short delay
                 header('Refresh: 2; URL=./');
             } else {
                 $error = 'Virheellinen käyttäjänimi tai salasana.';
@@ -116,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             position: relative;
             overflow: hidden;
+            padding-top: 70px;
         }
         
         body::before {
@@ -311,6 +301,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="index.php">
+                <i class="fas fa-graduation-cap me-2"></i>
+                <span class="fw-bold">Kurssienhallinta</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.php">
+                            <i class="fas fa-home me-1"></i>Etusivu
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="login-container">
         <div class="login-header">
             <i class="fas fa-graduation-cap"></i>

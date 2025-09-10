@@ -1,14 +1,12 @@
 <?php
 require_once 'config/database.php';
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     http_response_code(500);
     echo json_encode(['error' => 'Tietokantayhteys puuttuu']);
     exit;
 }
 
-// Tarkistetaan pyyntö
 if (!isset($_GET['tila_tunnus']) || !is_numeric($_GET['tila_tunnus'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Virheellinen tilatunnus']);
@@ -20,7 +18,6 @@ $tila_tunnus = (int)$_GET['tila_tunnus'];
 try {
     $pdo = getDbConnection();
     
-    // Haetaan tilan kurssit
     $stmt = $pdo->prepare("
         SELECT k.nimi, 
                CONCAT(o.etunimi, ' ', o.sukunimi) AS opettaja_nimi,
@@ -39,7 +36,6 @@ try {
     $stmt->execute([$tila_tunnus]);
     $kurssit = $stmt->fetchAll();
     
-    // Palautetaan JSON-muodossa
     header('Content-Type: application/json');
     echo json_encode($kurssit);
     

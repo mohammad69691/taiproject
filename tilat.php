@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit voivat hallita tiloja
 if (!canEditAll()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -19,25 +16,20 @@ if (!testDbConnection()) {
 
 $pdo = getDbConnection();
 
-// Start session for message handling
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get messages from session (set by redirects)
 $message = $_SESSION['success_message'] ?? '';
 $error = $_SESSION['error_message'] ?? '';
 
-// Clear messages after displaying
 unset($_SESSION['success_message'], $_SESSION['error_message']);
 
-// Tilanteen lisäys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
         $stmt = $pdo->prepare("INSERT INTO tilat (nimi, kapasiteetti) VALUES (?, ?)");
         $stmt->execute([$_POST['nimi'], $_POST['kapasiteetti']]);
         
-        // Set success message and redirect to prevent form resubmission
         $_SESSION['success_message'] = 'Tila lisätty onnistuneesti!';
         header('Location: ' . $_SERVER['PHP_SELF']);
         exit();
@@ -46,13 +38,11 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     }
 }
 
-// Tilanteen poisto
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     try {
         $stmt = $pdo->prepare("DELETE FROM tilat WHERE tunnus = ?");
         $stmt->execute([$_POST['tunnus']]);
         
-        // Set success message and redirect to prevent form resubmission
         $_SESSION['success_message'] = 'Tila poistettu onnistuneesti!';
         header('Location: ' . $_SERVER['PHP_SELF']);
         exit();
@@ -61,13 +51,11 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     }
 }
 
-// Tilanteen päivitys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     try {
         $stmt = $pdo->prepare("UPDATE tilat SET nimi = ?, kapasiteetti = ? WHERE tunnus = ?");
         $stmt->execute([$_POST['nimi'], $_POST['kapasiteetti'], $_POST['tunnus']]);
         
-        // Set success message and redirect to prevent form resubmission
         $_SESSION['success_message'] = 'Tila päivitetty onnistuneesti!';
         header('Location: ' . $_SERVER['PHP_SELF']);
         exit();
@@ -76,7 +64,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     }
 }
 
-// Haetaan tilat
 $tilat = [];
 try {
     $stmt = $pdo->query("
@@ -489,7 +476,6 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Muokkaa tila -modalin täyttö
         document.getElementById('editRoomModal').addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const tila = JSON.parse(button.getAttribute('data-tila'));
@@ -499,7 +485,6 @@ try {
             document.getElementById('edit_kapasiteetti').value = tila.kapasiteetti;
         });
 
-        // Kurssit -modalin täyttö
         document.getElementById('coursesModal').addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const tila_tunnus = button.getAttribute('data-tila');
@@ -507,7 +492,6 @@ try {
             
             document.getElementById('roomName').textContent = nimi;
             
-            // Haetaan kurssit AJAX:lla
             fetch(`get_tilan_kurssit.php?tila_tunnus=${tila_tunnus}`)
                 .then(response => response.json())
                 .then(data => {

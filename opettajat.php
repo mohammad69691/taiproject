@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit voivat hallita opettajia
 if (!canEditAll()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -21,7 +18,6 @@ $pdo = getDbConnection();
 $message = '';
 $error = '';
 
-// Opettajan lisäys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
         $stmt = $pdo->prepare("INSERT INTO opettajat (etunimi, sukunimi, aine) VALUES (?, ?, ?)");
@@ -32,7 +28,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     }
 }
 
-// Opettajan poisto
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     try {
         $stmt = $pdo->prepare("DELETE FROM opettajat WHERE tunnus = ?");
@@ -43,7 +38,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     }
 }
 
-// Opettajan päivitys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     try {
         $stmt = $pdo->prepare("UPDATE opettajat SET etunimi = ?, sukunimi = ?, aine = ? WHERE tunnus = ?");
@@ -54,7 +48,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     }
 }
 
-// Haetaan opettajat
 $opettajat = [];
 try {
     $stmt = $pdo->query("SELECT * FROM opettajat ORDER BY sukunimi, etunimi");
@@ -189,7 +182,7 @@ try {
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <?php if (canEditAll() || canEnrollStudents()): ?>
+                    <?php if (canViewStudents()): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="opiskelijat.php">
                                 <i class="fas fa-users me-1"></i>Opiskelijat
@@ -234,7 +227,7 @@ try {
                             </a>
                         </li>
                     <?php endif; ?>
-                    <?php if (canEnrollStudents()): ?>
+                    <?php if (canEditAll()): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="kirjautumiset.php">
                                 <i class="fas fa-sign-in-alt me-1"></i>Kirjautumiset
@@ -453,7 +446,6 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Muokkaa opettaja -modalin täyttö
         document.getElementById('editTeacherModal').addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const opettaja = JSON.parse(button.getAttribute('data-opettaja'));
@@ -464,7 +456,6 @@ try {
             document.getElementById('edit_aine').value = opettaja.aine;
         });
 
-        // Kurssit -modalin täyttö
         document.getElementById('coursesModal').addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const opettaja_tunnus = button.getAttribute('data-opettaja');
@@ -472,12 +463,21 @@ try {
             
             document.getElementById('teacherName').textContent = nimi;
             
-            // Haetaan kurssit AJAX:lla
             fetch(`get_opettajan_kurssit.php?opettaja_tunnus=${opettaja_tunnus}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     const coursesList = document.getElementById('coursesList');
-                    if (data.length > 0) {
+                    
+                    if (data.error) {
+                        coursesList.innerHTML = `<p class="text-danger text-center">Virhe: ${data.error}</p>`;
+                    } else if (!Array.isArray(data)) {
+                        coursesList.innerHTML = '<p class="text-danger text-center">Virhe: Odottamaton vastaus palvelimelta</p>';
+                    } else if (data.length > 0) {
                         let html = '<div class="table-responsive"><table class="table table-sm">';
                         html += '<thead><tr><th>Kurssi</th><th>Aloituspäivä</th><th>Loppupäivä</th><th>Tila</th></tr></thead><tbody>';
                         data.forEach(kurssi => {
@@ -491,11 +491,11 @@ try {
                         html += '</tbody></table></div>';
                         coursesList.innerHTML = html;
                     } else {
-                        document.getElementById('coursesList').innerHTML = '<p class="text-muted">Ei kursseja.</p>';
+                        coursesList.innerHTML = '<p class="text-muted">Ei kursseja.</p>';
                     }
                 })
                 .catch(error => {
-                    document.getElementById('coursesList').innerHTML = '<p class="text-danger">Virhe kurssien haussa.</p>';
+                    document.getElementById('coursesList').innerHTML = '<p class="text-danger">Virhe kurssien haussa: ' + error.message + '</p>';
                 });
         });
     </script>

@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit ja opettajat voivat hallita opiskelijoita
-if (!canEnrollStudents()) {
+if (!canViewStudents()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -21,13 +18,10 @@ $pdo = getDbConnection();
 $message = '';
 $error = '';
 
-// Opiskelijan lisäys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
-        // Generate student number if not provided
         $opiskelijanumero = $_POST['opiskelijanumero'] ?? '';
         if (empty($opiskelijanumero)) {
-            // Generate a simple student number based on current year and random number
             $opiskelijanumero = date('Y') . sprintf('%04d', rand(1000, 9999));
         }
         
@@ -39,7 +33,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     }
 }
 
-// Opiskelijan poisto
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     try {
         $stmt = $pdo->prepare("DELETE FROM opiskelijat WHERE tunnus = ?");
@@ -50,7 +43,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     }
 }
 
-// Opiskelijan päivitys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     try {
         $stmt = $pdo->prepare("UPDATE opiskelijat SET opiskelijanumero = ?, etunimi = ?, sukunimi = ?, syntymapaiva = ?, vuosikurssi = ? WHERE tunnus = ?");
@@ -61,15 +53,12 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     }
 }
 
-// Haetaan opiskelijat
 $opiskelijat = [];
 try {
     if (isAdmin()) {
-        // Admin näkee kaikki opiskelijat
         $stmt = $pdo->query("SELECT * FROM opiskelijat ORDER BY sukunimi, etunimi");
         $opiskelijat = $stmt->fetchAll();
     } elseif (isTeacher()) {
-        // Opettaja näkee vain omissa kursseissaan olevat opiskelijat
         $teacherId = getCurrentTeacherId();
         $stmt = $pdo->prepare("
             SELECT DISTINCT o.* 
@@ -86,7 +75,6 @@ try {
     $error = 'Virhe opiskelijoiden haussa: ' . $e->getMessage();
 }
 
-// Haetaan opiskelijan kurssit
 function getOpiskelijanKurssit($pdo, $opiskelijanumero) {
     $stmt = $pdo->prepare("
         SELECT k.nimi, k.alkupaiva, kk.kirjautumispvm
@@ -225,7 +213,7 @@ function getOpiskelijanKurssit($pdo, $opiskelijanumero) {
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <?php if (canEditAll() || canManageCourses()): ?>
+                    <?php if (canViewStudents()): ?>
                         <li class="nav-item">
                             <a class="nav-link active" href="opiskelijat.php">
                                 <i class="fas fa-users me-1"></i>Opiskelijat
@@ -578,14 +566,43 @@ function getOpiskelijanKurssit($pdo, $opiskelijanumero) {
         }
 
         function showStudentCourses(tunnus, name) {
+            console.log('showStudentCourses called with:', { tunnus, name });
             document.getElementById('studentCoursesModal').querySelector('.modal-title').textContent = name + ' - Kurssit';
             
-            // Haetaan opiskelijan kurssit AJAX:lla
-            fetch(`get_opiskelijan_kurssit.php?tunnus=${tunnus}`)
-                .then(response => response.json())
+            if (!tunnus || tunnus === 'undefined' || tunnus === '') {
+                console.log('Invalid tunnus:', tunnus);
+                document.getElementById('studentCoursesContent').innerHTML = 
+                    '<p class="text-danger text-center">Virhe: Opiskelijan tunnus puuttuu</p>';
+                new bootstrap.Modal(document.getElementById('studentCoursesModal')).show();
+                return;
+            }
+            
+            const url = `./get_opiskelijan_kurssit?tunnus=${tunnus}`;
+            console.log('Fetching URL:', url);
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin'
+            })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response URL:', response.url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     let content = '';
-                    if (data.length === 0) {
+                    
+                    if (data.error) {
+                        content = `<p class="text-danger text-center">Virhe: ${data.error}</p>`;
+                    } else if (!Array.isArray(data)) {
+                        content = '<p class="text-danger text-center">Virhe: Odottamaton vastaus palvelimelta</p>';
+                    } else if (data.length === 0) {
                         content = '<p class="text-muted text-center">Opiskelijalla ei ole kurssikirjautumisia.</p>';
                     } else {
                         content = '<div class="table-responsive"><table class="table table-striped">';

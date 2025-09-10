@@ -2,14 +2,12 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio
 if (!isLoggedIn()) {
     http_response_code(401);
     echo json_encode(['error' => 'Ei kirjautunut']);
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     http_response_code(500);
     echo json_encode(['error' => 'Tietokantayhteys puuttuu']);
@@ -19,16 +17,16 @@ if (!testDbConnection()) {
 try {
     $pdo = getDbConnection();
     
-    // Haetaan kurssin tunnus
     $kurssi_tunnus = $_GET['kurssi_tunnus'] ?? null;
+    error_log("Processing course students request for kurssi_tunnus: " . $kurssi_tunnus);
     
     if (!$kurssi_tunnus) {
+        error_log("No kurssi_tunnus provided");
         http_response_code(400);
-        echo json_encode(['error' => 'Kurssin tunnus puuttuu']);
+        echo json_encode(['error' => 'Kurssin tunnus puuttuu', 'debug' => 'Received GET: ' . json_encode($_GET)]);
         exit();
     }
     
-    // Jos opettaja, tarkistetaan että kurssi on hänen
     if (isTeacher()) {
         $teacherId = getCurrentTeacherId();
         $stmt = $pdo->prepare("
@@ -46,7 +44,6 @@ try {
         }
     }
     
-    // Haetaan kurssin opiskelijat
     $stmt = $pdo->prepare("
         SELECT o.etunimi, o.sukunimi, o.vuosikurssi, kk.kirjautumispvm
         FROM kurssikirjautumiset kk
@@ -57,7 +54,6 @@ try {
     $stmt->execute([$kurssi_tunnus]);
     $opiskelijat = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Palautetaan JSON-muodossa
     header('Content-Type: application/json');
     echo json_encode($opiskelijat);
     

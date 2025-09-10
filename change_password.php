@@ -2,7 +2,6 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Check if user is in temp session (password change required)
 if (!isset($_SESSION['temp_user_id'])) {
     header('Location: login.php');
     exit();
@@ -12,7 +11,6 @@ $pdo = getDbConnection();
 $error = '';
 $success = '';
 
-// Handle password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -29,25 +27,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE kayttajat SET salasana_hash = ?, salasana_vaihdettu = 1 WHERE tunnus = ?");
             $stmt->execute([$password_hash, $_SESSION['temp_user_id']]);
             
-            // Set proper session variables
             $_SESSION['user_id'] = $_SESSION['temp_user_id'];
             $_SESSION['username'] = $_SESSION['temp_username'];
             $_SESSION['user_role'] = $_SESSION['temp_user_role'];
             $_SESSION['user_name'] = $_SESSION['temp_user_name'] ?? 'Käyttäjä';
             $_SESSION['last_activity'] = time();
             
-            // Set role-specific IDs
             if ($_SESSION['temp_user_role'] === 'opettaja') {
                 $_SESSION['teacher_id'] = $_SESSION['temp_teacher_id'];
             } elseif ($_SESSION['temp_user_role'] === 'opiskelija') {
                 $_SESSION['student_id'] = $_SESSION['temp_student_id'];
             }
             
-            // Update last login time
             $updateStmt = $pdo->prepare("UPDATE kayttajat SET viimeisin_kirjautuminen = NOW() WHERE tunnus = ?");
             $updateStmt->execute([$_SESSION['temp_user_id']]);
             
-            // Clear temp session
             unset($_SESSION['temp_user_id']);
             unset($_SESSION['temp_username']);
             unset($_SESSION['temp_user_role']);
@@ -200,7 +194,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Password confirmation validation
         document.getElementById('confirm_password').addEventListener('input', function() {
             const newPassword = document.getElementById('new_password').value;
             const confirmPassword = this.value;

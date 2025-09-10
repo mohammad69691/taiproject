@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit ja opettajat voivat hallita kurssikirjautumisia
 if (!canEnrollStudents()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -21,10 +18,8 @@ $pdo = getDbConnection();
 $message = '';
 $error = '';
 
-// Kurssikirjautumisen lisäys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
-        // Tarkistetaan ettei opiskelija ole jo kirjautunut kurssille
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM kurssikirjautumiset WHERE opiskelija_tunnus = ? AND kurssi_tunnus = ?");
         $stmt->execute([$_POST['opiskelija_tunnus'], $_POST['kurssi_tunnus']]);
         if ($stmt->fetchColumn() > 0) {
@@ -39,7 +34,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     }
 }
 
-// Kurssikirjautumisen poisto
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     try {
         $stmt = $pdo->prepare("DELETE FROM kurssikirjautumiset WHERE tunnus = ?");
@@ -50,11 +44,9 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     }
 }
 
-// Haetaan kurssikirjautumiset
 $kirjautumiset = [];
 try {
     if (isAdmin()) {
-        // Admin näkee kaikki kirjautumiset
         $stmt = $pdo->query("
             SELECT kk.tunnus, kk.opiskelija_tunnus, kk.kurssi_tunnus, kk.kirjautumispvm,
                    CONCAT(o.etunimi, ' ', o.sukunimi) AS opiskelija_nimi,
@@ -73,7 +65,6 @@ try {
         ");
         $kirjautumiset = $stmt->fetchAll();
     } elseif (isTeacher()) {
-        // Opettaja näkee vain omissa kursseissaan olevat kirjautumiset
         $teacherId = getCurrentTeacherId();
         $stmt = $pdo->prepare("
             SELECT kk.tunnus, kk.opiskelija_tunnus, kk.kurssi_tunnus, kk.kirjautumispvm,
@@ -99,7 +90,6 @@ try {
     $error = 'Virhe kurssikirjautumisten haussa: ' . $e->getMessage();
 }
 
-// Haetaan opiskelijat ja kurssit lomakkeita varten
 $opiskelijat = [];
 $kurssit = [];
 try {
@@ -293,7 +283,7 @@ try {
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <?php if (canEditAll() || canManageCourses()): ?>
+                    <?php if (canViewStudents()): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="opiskelijat.php">
                                 <i class="fas fa-users me-1"></i>Opiskelijat
@@ -455,7 +445,6 @@ try {
                                         </td>
                                         <td>
                                             <?php 
-                                            // Lasketaan osallistujien määrä tälle kurssille
                                             $stmt = $pdo->prepare("SELECT COUNT(*) FROM kurssikirjautumiset WHERE kurssi_tunnus = ?");
                                             $stmt->execute([$kirjautuminen['kurssi_tunnus']]);
                                             $osallistujia = $stmt->fetchColumn();

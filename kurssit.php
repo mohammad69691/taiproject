@@ -2,16 +2,13 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain adminit ja opettajat voivat hallita kursseja
 if (!canManageCourses()) {
     header('Location: access_denied.php');
     exit();
 }
 
-// Tarkistetaan tietokantayhteys
 if (!testDbConnection()) {
     header('Location: setup.php');
     exit;
@@ -21,7 +18,6 @@ $pdo = getDbConnection();
 $message = '';
 $error = '';
 
-// Kurssin lisäys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
         $stmt = $pdo->prepare("INSERT INTO kurssit (nimi, kuvaus, alkupaiva, loppupaiva, opettaja_tunnus, tila_tunnus) VALUES (?, ?, ?, ?, ?, ?)");
@@ -32,7 +28,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     }
 }
 
-// Kurssin poisto
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     try {
         $stmt = $pdo->prepare("DELETE FROM kurssit WHERE tunnus = ?");
@@ -43,7 +38,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'delete') {
     }
 }
 
-// Kurssin päivitys
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     try {
         $stmt = $pdo->prepare("UPDATE kurssit SET nimi = ?, kuvaus = ?, alkupaiva = ?, loppupaiva = ?, opettaja_tunnus = ?, tila_tunnus = ? WHERE tunnus = ?");
@@ -54,11 +48,9 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] == 'update') {
     }
 }
 
-// Haetaan kurssit
 $kurssit = [];
 try {
     if (isAdmin()) {
-        // Admin näkee kaikki kurssit
         $stmt = $pdo->query("
             SELECT k.*, 
                    CONCAT(o.etunimi, ' ', o.sukunimi) AS opettaja_nimi,
@@ -74,7 +66,6 @@ try {
         ");
         $kurssit = $stmt->fetchAll();
     } elseif (isTeacher()) {
-        // Opettaja näkee vain omat kurssinsa
         $teacherId = getCurrentTeacherId();
         $stmt = $pdo->prepare("
             SELECT k.*, 
@@ -97,7 +88,6 @@ try {
     $error = 'Virhe kurssien haussa: ' . $e->getMessage();
 }
 
-// Haetaan opettajat ja tilat lomakkeita varten
 $opettajat = [];
 $tilat = [];
 try {
@@ -108,7 +98,6 @@ try {
         $stmt = $pdo->query("SELECT tunnus, nimi, kapasiteetti FROM tilat ORDER BY nimi");
         $tilat = $stmt->fetchAll();
     } elseif (isTeacher()) {
-        // Opettaja voi luoda kursseja vain itselleen
         $teacherId = getCurrentTeacherId();
         $stmt = $pdo->prepare("SELECT tunnus, etunimi, sukunimi, aine FROM opettajat WHERE tunnus = ?");
         $stmt->execute([$teacherId]);
@@ -249,7 +238,6 @@ try {
     </style>
 </head>
 <body>
-    <!-- Navigaatio -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="./">
@@ -261,7 +249,7 @@ try {
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <?php if (canEditAll() || canManageCourses()): ?>
+                    <?php if (canViewStudents()): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="opiskelijat.php">
                                 <i class="fas fa-users me-1"></i>Opiskelijat
@@ -304,7 +292,7 @@ try {
                             </a>
                         </li>
                     <?php endif; ?>
-                    <?php if (canEnrollStudents()): ?>
+                    <?php if (canEditAll()): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="kirjautumiset.php">
                                 <i class="fas fa-sign-in-alt me-1"></i>Kirjautumiset
@@ -338,7 +326,6 @@ try {
         </div>
     </nav>
 
-    <!-- Page Header -->
     <div class="page-header">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
@@ -376,7 +363,6 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- Kurssien lista -->
         <div class="table-container">
             <div class="table-responsive">
                 <table class="table table-hover">
@@ -465,7 +451,6 @@ try {
         </div>
     </div>
 
-    <!-- Lisää kurssi -modal -->
     <div class="modal fade" id="addCourseModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -648,12 +633,32 @@ try {
         function showCourseStudents(courseId, courseName) {
             document.getElementById('courseName').textContent = courseName;
             
-            // Haetaan opiskelijat AJAX:lla
-            fetch(`get_kurssin_opiskelijat.php?kurssi_tunnus=${courseId}`)
-                .then(response => response.json())
+            const url = `./get_kurssin_opiskelijat?kurssi_tunnus=${courseId}`;
+            console.log('Fetching course students URL:', url);
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin'
+            })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response URL:', response.url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     const studentsList = document.getElementById('studentsList');
-                    if (data.length > 0) {
+                    
+                    if (data.error) {
+                        studentsList.innerHTML = `<p class="text-danger text-center">Virhe: ${data.error}</p>`;
+                    } else if (!Array.isArray(data)) {
+                        studentsList.innerHTML = '<p class="text-danger text-center">Virhe: Odottamaton vastaus palvelimelta</p>';
+                    } else if (data.length > 0) {
                         let html = '<div class="table-responsive"><table class="table table-sm">';
                         html += '<thead><tr><th>Nimi</th><th>Vuosikurssi</th><th>Kirjautumispäivä</th></tr></thead><tbody>';
                         data.forEach(opiskelija => {

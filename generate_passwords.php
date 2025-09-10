@@ -1,6 +1,4 @@
 <?php
-// Tämä skripti generoi salasanahashit testikäyttäjille
-// This script generates password hashes for test users
 
 $password = 'password'; // Kaikille testikäyttäjille sama salasana
 $hash = password_hash($password, PASSWORD_DEFAULT);

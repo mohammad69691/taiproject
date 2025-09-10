@@ -2,10 +2,8 @@
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
-// Tarkistetaan autentikaatio ja oikeudet
 requireAuth();
 
-// Vain opiskelijat voivat käyttää tätä sivua
 if (!isStudent()) {
     header('Location: access_denied.php');
     exit();
@@ -15,7 +13,6 @@ $pdo = getDbConnection();
 $studentId = getCurrentStudentId();
 $error = '';
 
-// Haetaan opiskelijan tiedot
 $opiskelija = null;
 try {
     $stmt = $pdo->prepare("SELECT * FROM opiskelijat WHERE tunnus = ?");
@@ -25,7 +22,6 @@ try {
     $error = 'Virhe opiskelijatietojen haussa: ' . $e->getMessage();
 }
 
-// Haetaan opiskelijan kurssit
 $kurssit = [];
 try {
     $stmt = $pdo->prepare("
@@ -45,17 +41,14 @@ try {
     $error = 'Virhe kurssien haussa: ' . $e->getMessage();
 }
 
-// Haetaan tulevat kurssit (tänään ja tulevaisuudessa)
 $tulevat_kurssit = array_filter($kurssit, function($k) {
     return $k['alkupaiva'] >= date('Y-m-d');
 });
 
-// Haetaan menneet kurssit
 $menneet_kurssit = array_filter($kurssit, function($k) {
     return $k['loppupaiva'] < date('Y-m-d');
 });
 
-// Haetaan aktiiviset kurssit
 $aktiiviset_kurssit = array_filter($kurssit, function($k) {
     return $k['alkupaiva'] <= date('Y-m-d') && $k['loppupaiva'] >= date('Y-m-d');
 });
@@ -578,7 +571,6 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Smooth scrolling for anchor links
         document.addEventListener('DOMContentLoaded', function() {
             const links = document.querySelectorAll('a[href^="#"]');
             
@@ -586,7 +578,6 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
                 link.addEventListener('click', function(e) {
                     const href = this.getAttribute('href');
                     
-                    // Only handle internal anchor links
                     if (href.startsWith('#') && href.length > 1) {
                         e.preventDefault();
                         

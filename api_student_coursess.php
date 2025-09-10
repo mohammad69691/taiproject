@@ -1,5 +1,5 @@
 <?php
-error_log("get_opiskelijan_kurssit.php accessed with GET: " . json_encode($_GET));
+error_log("api_student_courses.php accessed with POST: " . json_encode($_POST) . ", GET: " . json_encode($_GET));
 require_once 'config/database.php';
 require_once 'config/auth.php';
 
@@ -19,32 +19,14 @@ if (!testDbConnection()) {
 try {
     $pdo = getDbConnection();
     
-    $tunnus = $_GET['tunnus'] ?? null;
+    $tunnus = $_POST['tunnus'] ?? $_GET['tunnus'] ?? null;
     error_log("Processing request for tunnus: " . $tunnus);
     
     if (!$tunnus || $tunnus === '') {
         error_log("No tunnus provided");
         http_response_code(400);
-        echo json_encode(['error' => 'Opiskelijan tunnus puuttuu', 'debug' => 'Received GET: ' . json_encode($_GET)]);
+        echo json_encode(['error' => 'Opiskelijan tunnus puuttuu', 'debug' => 'Received POST: ' . json_encode($_POST) . ', GET: ' . json_encode($_GET)]);
         exit();
-    }
-    
-    if (isTeacher()) {
-        $teacherId = getCurrentTeacherId();
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) as count 
-            FROM kurssikirjautumiset kk
-            JOIN kurssit k ON kk.kurssi_tunnus = k.tunnus
-            WHERE kk.opiskelija_tunnus = ? AND k.opettaja_tunnus = ?
-        ");
-        $stmt->execute([$tunnus, $teacherId]);
-        $result = $stmt->fetch();
-        
-        if ($result['count'] == 0) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Ei oikeuksia tähän opiskelijaan']);
-            exit();
-        }
     }
     
     $stmt = $pdo->prepare("
