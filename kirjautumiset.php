@@ -20,17 +20,40 @@ $error = '';
 
 if ($_POST && isset($_POST['action']) && $_POST['action'] == 'add') {
     try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM kurssikirjautumiset WHERE opiskelija_tunnus = ? AND kurssi_tunnus = ?");
-        $stmt->execute([$_POST['opiskelija_tunnus'], $_POST['kurssi_tunnus']]);
-        if ($stmt->fetchColumn() > 0) {
-            $error = 'Opiskelija on jo kirjautunut tälle kurssille!';
+        // Validate input data
+        if (empty($_POST['opiskelija_tunnus']) || empty($_POST['kurssi_tunnus'])) {
+            $error = 'Opiskelija ja kurssi on valittava!';
         } else {
-            $stmt = $pdo->prepare("INSERT INTO kurssikirjautumiset (opiskelija_tunnus, kurssi_tunnus, kirjautumispvm) VALUES (?, ?, NOW())");
-            $stmt->execute([$_POST['opiskelija_tunnus'], $_POST['kurssi_tunnus']]);
-            $message = 'Kurssikirjautuminen lisätty onnistuneesti!';
+            // Check if student exists
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM opiskelijat WHERE tunnus = ?");
+            $stmt->execute([$_POST['opiskelija_tunnus']]);
+            if ($stmt->fetchColumn() == 0) {
+                $error = 'Valittua opiskelijaa ei löydy!';
+            } else {
+                // Check if course exists
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM kurssit WHERE tunnus = ?");
+                $stmt->execute([$_POST['kurssi_tunnus']]);
+                if ($stmt->fetchColumn() == 0) {
+                    $error = 'Valittua kurssia ei löydy! Tarkista kurssin ID: ' . htmlspecialchars($_POST['kurssi_tunnus']);
+                } else {
+                    // Check if already registered
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM kurssikirjautumiset WHERE opiskelija_tunnus = ? AND kurssi_tunnus = ?");
+                    $stmt->execute([$_POST['opiskelija_tunnus'], $_POST['kurssi_tunnus']]);
+                    if ($stmt->fetchColumn() > 0) {
+                        $error = 'Opiskelija on jo kirjautunut tälle kurssille!';
+                    } else {
+                        // Insert registration
+                        $stmt = $pdo->prepare("INSERT INTO kurssikirjautumiset (opiskelija_tunnus, kurssi_tunnus, kirjautumispvm) VALUES (?, ?, NOW())");
+                        $stmt->execute([$_POST['opiskelija_tunnus'], $_POST['kurssi_tunnus']]);
+                        $message = 'Kurssikirjautuminen lisätty onnistuneesti!';
+                    }
+                }
+            }
         }
     } catch (Exception $e) {
         $error = 'Virhe kirjautumisen lisäämisessä: ' . $e->getMessage();
+        // Log the error for debugging
+        error_log("Registration error: " . $e->getMessage() . " - Student ID: " . ($_POST['opiskelija_tunnus'] ?? 'empty') . " - Course ID: " . ($_POST['kurssi_tunnus'] ?? 'empty'));
     }
 }
 

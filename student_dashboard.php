@@ -23,6 +23,7 @@ try {
 }
 
 $kurssit = [];
+$daily_schedules = [];
 try {
     $stmt = $pdo->prepare("
         SELECT k.*, t.nimi AS tila_nimi, t.kapasiteetti,
@@ -37,6 +38,23 @@ try {
     ");
     $stmt->execute([$studentId]);
     $kurssit = $stmt->fetchAll();
+    
+    // Get daily schedules for student's courses
+    $stmt = $pdo->prepare("
+        SELECT ks.*, k.nimi AS kurssi_nimi, k.tunnus AS kurssi_tunnus,
+               CONCAT(op.etunimi, ' ', op.sukunimi) AS opettaja_nimi,
+               t.nimi AS tila_nimi
+        FROM kurssi_sessiot ks
+        JOIN kurssit k ON ks.kurssi_tunnus = k.tunnus
+        JOIN opettajat op ON k.opettaja_tunnus = op.tunnus
+        JOIN tilat t ON k.tila_tunnus = t.tunnus
+        JOIN kurssikirjautumiset kk ON k.tunnus = kk.kurssi_tunnus
+        WHERE kk.opiskelija_tunnus = ?
+        AND k.alkupaiva <= CURDATE() AND k.loppupaiva >= CURDATE()
+        ORDER BY ks.viikonpaiva, ks.alkuaika
+    ");
+    $stmt->execute([$studentId]);
+    $daily_schedules = $stmt->fetchAll();
 } catch (Exception $e) {
     $error = 'Virhe kurssien haussa: ' . $e->getMessage();
 }
@@ -284,6 +302,123 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
         .badge.bg-info {
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
         }
+        
+        /* Daily Schedule Styles */
+        .daily-schedule-container {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            margin-top: 2rem;
+        }
+        
+        .daily-schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+        
+        .daily-schedule-table th {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            color: white;
+            font-weight: 600;
+            padding: 1rem;
+            text-align: center;
+            border: none;
+            font-size: 0.9rem;
+        }
+        
+        .daily-schedule-table th:first-child {
+            width: 100px;
+        }
+        
+        .daily-schedule-table td {
+            padding: 0;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+            position: relative;
+            min-height: 80px;
+            height: 80px;
+        }
+        
+        .daily-schedule-table td:first-child {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+            text-align: right;
+            padding-right: 1rem;
+            border-right: 2px solid #d1d5db;
+            width: 100px;
+        }
+        
+        .daily-schedule-slot {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .daily-schedule-slot:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .daily-schedule-slot.has-lesson {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 0.5rem;
+            margin: 2px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            cursor: pointer;
+        }
+        
+        .lesson-item {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-align: center;
+            padding: 0.2rem;
+            line-height: 1.1;
+        }
+        
+        .lesson-item .course-name {
+            font-size: 0.65rem;
+            margin-bottom: 0.1rem;
+            font-weight: 700;
+        }
+        
+        .lesson-item .course-code {
+            font-size: 0.6rem;
+            opacity: 0.9;
+            margin-bottom: 0.1rem;
+        }
+        
+        .lesson-item .teacher-room {
+            font-size: 0.55rem;
+            opacity: 0.8;
+        }
+        
+        .day-navigation {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .day-navigation .btn {
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .day-navigation .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -301,7 +436,12 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="#schedule">
-                            <i class="fas fa-calendar me-1"></i>Oma aikataulu
+                            <i class="fas fa-calendar-day me-1"></i>Viikkoaikataulu
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#course-timeline">
+                            <i class="fas fa-calendar me-1"></i>Kurssien aikajana
                         </a>
                     </li>
                     <li class="nav-item">
@@ -405,11 +545,62 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
         </div>
     </section>
 
-    <!-- Aikataulu -->
+    <!-- Daily Schedule -->
     <section id="schedule" class="schedule-section">
         <div class="container">
             <h2 class="section-title">
-                <i class="fas fa-calendar me-2"></i>Oma aikataulu
+                <i class="fas fa-calendar-day me-2"></i>Viikkoaikataulu
+            </h2>
+            
+            <?php if (empty($daily_schedules)): ?>
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Ei aktiivisia kursseja tällä viikolla. Tarkista aikataulut myöhemmin.
+                </div>
+            <?php else: ?>
+                <div class="daily-schedule-container">
+                    <div class="day-navigation">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Viikkokalenteri</h5>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary" onclick="previousWeek()" title="Edellinen viikko">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="btn btn-primary" id="currentWeekBtn">
+                                    <i class="fas fa-calendar-week me-2"></i>Viikko <span id="weekNumber"></span>
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="nextWeek()" title="Seuraava viikko">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <table class="daily-schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Aika</th>
+                                <th>Maanantai</th>
+                                <th>Tiistai</th>
+                                <th>Keskiviikko</th>
+                                <th>Torstai</th>
+                                <th>Perjantai</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyScheduleContent">
+                            <!-- Daily schedule content will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- Course Timeline -->
+    <section id="course-timeline" class="schedule-section">
+        <div class="container">
+            <h2 class="section-title">
+                <i class="fas fa-calendar me-2"></i>Kurssien aikajana
             </h2>
             
             <?php if (empty($kurssit)): ?>
@@ -571,7 +762,93 @@ $aktiiviset_kurssit = array_filter($kurssit, function($k) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Daily Schedule functionality
+        let currentWeek = new Date();
+        
+        function getWeekNumber(date) {
+            const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+            const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+            return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        }
+        
+        function updateDailySchedule() {
+            const weekNumber = getWeekNumber(currentWeek);
+            document.getElementById('weekNumber').textContent = weekNumber;
+            
+            const scheduleContent = document.getElementById('dailyScheduleContent');
+            scheduleContent.innerHTML = '';
+            
+            // Generate time slots from 8:00 to 16:00
+            for (let hour = 8; hour < 16; hour++) {
+                const timeRow = document.createElement('tr');
+                
+                // Time cell
+                const timeCell = document.createElement('td');
+                timeCell.textContent = hour + ':00';
+                timeRow.appendChild(timeCell);
+                
+                // Day cells
+                for (let day = 0; day < 5; day++) {
+                    const dayCell = document.createElement('td');
+                    const dayCode = ['ma', 'ti', 'ke', 'to', 'pe'][day];
+                    
+                    const slot = document.createElement('div');
+                    slot.className = 'daily-schedule-slot';
+                    slot.dataset.day = dayCode;
+                    slot.dataset.hour = hour;
+                    dayCell.appendChild(slot);
+                    
+                    timeRow.appendChild(dayCell);
+                }
+                
+                scheduleContent.appendChild(timeRow);
+            }
+            
+            // Load schedule data
+            loadDailyScheduleData();
+        }
+        
+        function loadDailyScheduleData() {
+            const schedules = <?php echo json_encode($daily_schedules); ?>;
+            
+            schedules.forEach(schedule => {
+                const startHour = schedule.alkuaika.split(':')[0];
+                const endHour = schedule.loppuaika.split(':')[0];
+                const startMin = schedule.alkuaika.split(':')[1];
+                const endMin = schedule.loppuaika.split(':')[1];
+                
+                const slot = document.querySelector(`[data-day="${schedule.viikonpaiva}"][data-hour="${startHour}"]`);
+                if (slot) {
+                    slot.innerHTML = `
+                        <div class="lesson-item">
+                            <div class="course-name">${schedule.kurssi_nimi}</div>
+                            <div class="course-code">Kurssi ${schedule.kurssi_tunnus}</div>
+                            <div class="teacher-room">${schedule.opettaja_nimi} ${schedule.tila_nimi}</div>
+                        </div>
+                    `;
+                    slot.classList.add('has-lesson');
+                    slot.title = `${schedule.kurssi_nimi} - ${schedule.alkuaika} - ${schedule.loppuaika} - ${schedule.opettaja_nimi} - ${schedule.tila_nimi}`;
+                }
+            });
+        }
+        
+        function previousWeek() {
+            currentWeek.setDate(currentWeek.getDate() - 7);
+            updateDailySchedule();
+        }
+        
+        function nextWeek() {
+            currentWeek.setDate(currentWeek.getDate() + 7);
+            updateDailySchedule();
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize daily schedule if it exists
+            if (document.getElementById('dailyScheduleContent')) {
+                updateDailySchedule();
+            }
+            
+            // Smooth scrolling for navigation links
             const links = document.querySelectorAll('a[href^="#"]');
             
             links.forEach(link => {

@@ -170,7 +170,6 @@ try {
     </style>
 </head>
 <body>
-    <!-- Navigaatio -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="./">
@@ -297,7 +296,6 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- Opettajien lista -->
         <div class="table-container">
             <div class="table-responsive">
                 <table class="table table-hover">
@@ -354,7 +352,6 @@ try {
         </div>
     </div>
 
-    <!-- Lisää opettaja -modal -->
     <?php if (canEditAll()): ?>
     <div class="modal fade" id="addTeacherModal" tabindex="-1">
         <div class="modal-dialog">
@@ -389,7 +386,6 @@ try {
     </div>
     <?php endif; ?>
 
-    <!-- Muokkaa opettaja -modal -->
     <?php if (canEditAll()): ?>
     <div class="modal fade" id="editTeacherModal" tabindex="-1">
         <div class="modal-dialog">
@@ -425,7 +421,6 @@ try {
     </div>
     <?php endif; ?>
 
-    <!-- Kurssit -modal -->
     <div class="modal fade" id="coursesModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
